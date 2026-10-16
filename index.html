@@ -478,6 +478,7 @@ ol.rules li::marker,ul.rules li::marker{color:var(--sec)}
 .chist{display:grid;margin:0;padding:0;list-style:none}
 .chist li{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:13px;color:var(--ink-2);padding:7px 0;border-bottom:1px solid var(--line)}
 .chist li b{color:var(--ink);font-weight:600}
+.fz .circ{--c:var(--violet);--rgb:184,162,255}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .bk{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .bk .btn{text-align:center;cursor:pointer}
@@ -523,7 +524,7 @@ var DOW=["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
 var DOWF=["segunda","terça","quarta","quinta","sexta","sábado","domingo"];
 var DOWL=["Segunda","Terça","Quarta","Quinta","Sexta","Sábado","Domingo"];
 var MES=["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
-var SN={A:"Peito e tríceps",B:"Costas e bíceps",C:"Pernas e ombros"};
+var SN={A:"Peito e tríceps",B:"Costas e bíceps",C:"Pernas e ombros",circ:"Circuito 20 min"};
 var TY={facil:{p:"FÁCIL",c:"p-facil"},longao:{p:"LONGÃO",c:"p-longao"},qual:{p:"QUALIDADE",c:"p-qual"},forca:{p:"FORÇA",c:"p-forca"},desc:{p:"DESCANSO",c:"p-desc"},ativ:{p:"ATIVAÇÃO",c:"p-ativ"},prova:{p:"PROVA",c:"p-prova"}};
 var TYC={facil:"c-mint",longao:"c-blue",qual:"c-ember",forca:"c-violet",desc:"c-grey",ativ:"c-ember",prova:"c-gold"};
 function phC(ph,kind){if(kind==="cut"||ph==="rec")return "c-grey";return {base:"c-mint",vo2:"c-ember",esp:"c-blue",taper:"c-gold",race:"c-gold"}[ph];}
@@ -772,7 +773,7 @@ function muscPlan(w){
     else eff=planned||"none";
     if(eff!=="none"&&occ[eff]&&l.musc)warn="O treino "+eff+" já está "+occ[eff]+". Prefira o outro.";
     res[x.d]={eff:eff,why:why,warn:warn,opts:opts,planned:planned,done:l.fs==="sim",occ:Object.assign({},occ)};
-    if(eff!=="none"&&(l.fs==="sim"||di>=t))occ[eff]="na "+DOWF[x.d];
+    if(eff!=="none"&&eff!=="circ"&&(l.fs==="sim"||di>=t))occ[eff]="na "+DOWF[x.d];
   });return res;
 }
 function dayHint(x,mp){if(x.d===3)return mp.eff==="none"?"Quinta é livre. Se der tempo, escolha A ou B: o app reencaixa o resto da semana.":"Treino extra na quinta. Só membro superior; o resto da semana já foi reencaixado.";if(mp.eff==="none")return "";if(x.d===0&&mp.eff!=="C")return "Perna só cabe na segunda. Trocando, ela fica de fora nesta semana, sem compensar depois.";if(x.d===2)return "Só membro superior, depois da corrida ou com algumas horas de intervalo.";return "";}
@@ -896,12 +897,12 @@ function runLogHTML(x,di,pfx){
 }
 function forcaHTML(w,x,di,pfx){
   var mp=muscPlan(w)[x.d];if(!mp)return "";var l=logs[di]||{};
-  var chips=mp.opts.concat(["none"]).map(function(k){var used=k!=="none"&&mp.occ[k]&&mp.eff!==k;var lbl=k==="none"?"Sem musculação":k+" · "+SN[k];var tag=k===mp.planned?"<em>plano</em>":(used?"<em>já tem</em>":"");
+  var chips=mp.opts.concat(["circ","none"]).map(function(k){var used=k!=="none"&&k!=="circ"&&mp.occ[k]&&mp.eff!==k;var lbl=k==="none"?"Sem musculação":(k==="circ"?"Circuito 20 min":k+" · "+SN[k]);var tag=k===mp.planned?"<em>plano</em>":(used?"<em>já tem</em>":"");
     return '<button class="opt'+(used?" used":"")+'" data-act="musc" data-slot="'+di+'" data-v="'+k+'" aria-pressed="'+(mp.eff===k)+'">'+lbl+tag+"</button>";}).join("");
-  var adj=mp.eff!=="none"?adjFor(w,mp.eff):"",title=mp.eff==="none"?"Sem musculação":"Treino "+mp.eff+" — "+SN[mp.eff]+(adj?" ("+adj+")":"");
-  var hint=mp.warn||mp.why||dayHint(x,mp);
+  var adj=mp.eff!=="none"&&mp.eff!=="circ"?adjFor(w,mp.eff):"",title=mp.eff==="none"?"Sem musculação":(mp.eff==="circ"?"Circuito de 20 min no lugar da musculação":"Treino "+mp.eff+" — "+SN[mp.eff]+(adj?" ("+adj+")":""));
+  var hint=mp.eff==="circ"?"O circuito substitui o treino de força de hoje. Registre as séries abaixo."+(w.kind==="rec"||w.kind==="race"||w.kind==="cut"||w.kind==="taper"?" Semana leve: faça sem ir até o limite.":""):(mp.warn||mp.why||dayHint(x,mp));
   return '<div class="fz'+(mp.eff==="none"?" off":"")+'"><div class="fz-h"><span class="fz-t">'+esc(title)+"</span>"+(mp.eff!=="none"?'<button class="fz-done" data-act="fs" data-slot="'+di+'" aria-pressed="'+(l.fs==="sim")+'">'+(l.fs==="sim"?"✓ Feita":"Marcar feita")+"</button>":"")+
-    '</div><div class="opts" role="group" aria-label="Treino de força">'+chips+"</div>"+(hint?'<p class="fz-hint'+(mp.warn?" warn":"")+'">'+esc(hint)+"</p>":"")+(mp.eff!=="none"&&pfx==="h"?exListHTML(w,mp.eff):"")+(mp.eff!=="none"?'<a class="fz-link" data-go="forca">'+(pfx==="h"?"Todos os treinos e cargas →":"Exercícios do treino "+mp.eff+" →")+"</a>":"")+"</div>";
+    '</div><div class="opts" role="group" aria-label="Treino de força">'+chips+"</div>"+(hint?'<p class="fz-hint'+(mp.warn?" warn":"")+'">'+esc(hint)+"</p>":"")+(mp.eff==="circ"?circHTML(di):(mp.eff!=="none"&&pfx==="h"?exListHTML(w,mp.eff):""))+(mp.eff!=="none"?'<a class="fz-link" data-go="forca">'+(mp.eff==="circ"?"Histórico do circuito →":(pfx==="h"?"Todos os treinos e cargas →":"Exercícios do treino "+mp.eff+" →"))+"</a>":"")+"</div>";
 }
 function isOpen(di){return openDays[di]!=null?openDays[di]:di===todayISO();}
 function daySummary(w,x,di){
@@ -909,15 +910,15 @@ function daySummary(w,x,di){
   if(x.km&&l.s)bits.push(l.s==="sim"?"✓ "+(l.km>0?fmtKm(l.km)+" km":"feito"):(l.s==="parcial"?"parcial"+(l.km>0?" "+fmtKm(l.km)+" km":""):"não fez"));
   if(x.km&&l.s&&l.pace)bits.push(fmtPace(l.pace)+"/km");
   if(l.fc>0)bits.push(l.fc+" bpm");
-  if(mp&&mp.eff!=="none"&&l.fs==="sim")bits.push("força "+mp.eff+" ✓");
+  if(mp&&mp.eff!=="none"&&mp.eff!=="circ"&&l.fs==="sim")bits.push("força "+mp.eff+" ✓");
   if(l.circ&&l.circ.r>0)bits.push("circuito "+l.circ.r+" ✓");
   var ok=(x.km&&l.s==="sim")||(!x.km&&l.fs==="sim");
   return {txt:bits.join(" · "),ok:ok};
 }
 function dayInner(w,x,di,pfx){
   var A=adjOf(di),t=A&&A.swap?"facil":dayType(w,x),ty=TY[t],mp=muscPlan(w)[x.d],nm=x.name,sub=x.sub,det=x.det;
-  if(x.t==="forca"){if(t==="desc"){nm="Sem corrida";sub="";det=mp?"Dia livre. Escolha um treino de força, se for treinar.":"Dia livre de corrida.";}else sub=SN[mp.eff];}
-  if(x.t==="desc"&&t==="forca"){nm="Musculação extra";sub=SN[mp.eff];det="";}
+  if(x.t==="forca"){if(t==="desc"){nm="Sem corrida";sub="";det=mp?"Dia livre. Escolha um treino de força, se for treinar.":"Dia livre de corrida.";}else if(mp.eff==="circ"){nm="Circuito de 20 min";sub="";}else sub=SN[mp.eff];}
+  if(x.t==="desc"&&t==="forca"){nm=mp.eff==="circ"?"Circuito de 20 min":"Musculação extra";sub=mp.eff==="circ"?"":SN[mp.eff];det="";}
   if(A&&A.swap){nm="Rodagem leve";sub="no lugar de "+x.name+(x.sub?" "+x.sub:"");det="Corrida fácil, pela respiração. Nada de tiros ou ritmo forte hoje.";}
   var h='<div class="day-head"><span class="pill '+ty.c+'">'+ty.p+"</span><h4>"+esc(nm)+(sub?" <small>· "+esc(sub)+"</small>":"")+"</h4></div>";
   if(x.km){var eff=A&&A.swap?"Fácil":x.eff,km=A?A.km:x.km;
@@ -947,6 +948,7 @@ function syncInputs(root){
 
 /* ---------- circuito semanal (qualquer dia) ---------- */
 var CIRC={min:20,ex:[["Puxada aberta",5],["Flexão",10],["Agachamento",15]],abs:40};
+function circFs(l){if(l.musc==="circ")l.fs=(l.circ&&l.circ.r>0)?"sim":"";}
 function circOf(d){var c=(logs[d]||{}).circ;return c&&(c.r>0||c.ab)?c:null;}
 function circDays(){return Object.keys(logs).filter(function(d){var c=circOf(d);return c&&c.r>0;}).sort();}
 function circBest(skip){var b=0,bd=null;circDays().forEach(function(d){if(d!==skip&&logs[d].circ.r>b){b=logs[d].circ.r;bd=d;}});return {r:b,d:bd};}
@@ -1001,11 +1003,11 @@ function vHoje(){
   if(f)h+='<div class="card tcard tint '+TYC[effType(f.w,f.x,di)]+'">'+dayInner(f.w,f.x,di,"h")+"</div>";
   else h+='<div class="card tcard tint c-grey"><div class="day-head"><span class="pill p-desc">FORA DO CICLO</span><h4>Dia livre</h4></div><p class="det">Esse dia não faz parte do plano ativo. Água e sono continuam contando.</p></div>';
   h+='<div class="card tint c-gold"><div class="card-h"><h3>Coach</h3><button class="linkbtn" data-go="ciencia">Ciência →</button></div><div class="coach">'+insights(di).map(insHTML).join("")+"</div>"+(di<=todayISO()?dorBtn(di):"")+"</div>";
-  h+='<div class="card tint c-ember"><div class="card-h"><h3>Circuito de 20 min</h3><span class="muted">qualquer dia</span></div>'+circHTML(di)+"</div>";
+  if((logs[di]||{}).musc!=="circ")h+='<div class="card tint c-ember"><div class="card-h"><h3>Circuito de 20 min</h3><span class="muted">qualquer dia</span></div>'+circHTML(di)+"</div>";
   h+='<div class="card tint c-indigo"><div class="card-h"><h3>Sono da noite anterior</h3></div>'+sleepHTML(di)+"</div>";
   h+='<div class="card tint c-cyan"><div class="card-h"><h3>Água</h3><button class="linkbtn" data-go="agua">Histórico →</button></div>'+aguaHTML(di,false)+"</div>";
   var nx=IDX[iso(addDays(dt,1))];
-  if(nx){var tt=dayType(nx.w,nx.x),mp=muscPlan(nx.w)[nx.x.d];var na=adjOf(iso(addDays(dt,1)));var nn=nx.x.km?(na&&na.swap?"Rodagem leve":nx.x.name+(nx.x.sub?" "+nx.x.sub:""))+" · "+fmtKm(na?na.km:nx.x.km)+" km"+(na?" · ajustado":""):(tt==="forca"?"Força "+mp.eff+" · "+SN[mp.eff]:(nx.x.d===3?"Sem treino":"Descanso"));
+  if(nx){var tt=dayType(nx.w,nx.x),mp=muscPlan(nx.w)[nx.x.d];var na=adjOf(iso(addDays(dt,1)));var nn=nx.x.km?(na&&na.swap?"Rodagem leve":nx.x.name+(nx.x.sub?" "+nx.x.sub:""))+" · "+fmtKm(na?na.km:nx.x.km)+" km"+(na?" · ajustado":""):(tt==="forca"?(mp.eff==="circ"?"Circuito de 20 min":"Força "+mp.eff+" · "+SN[mp.eff]):(nx.x.d===3?"Sem treino":"Descanso"));
     h+='<div class="card" style="display:flex;justify-content:space-between;gap:10px;align-items:center"><span class="muted">Amanhã&nbsp;&nbsp;<b style="color:var(--ink);font-weight:500">'+esc(nn)+'</b></span><button class="linkbtn" data-day="1">Ver →</button></div>';}
   $("app").innerHTML='<div class="panel view">'+h+"</div>";syncInputs($("app"));syncCargas();
 }
@@ -1230,19 +1232,19 @@ document.addEventListener("click",function(ev){
   if(act==="activate"){applyDraftDates();var p={dist:draft.dist,goal:draft.goal||null,weeks:draft.weeks,start:draft.start,runDays:draft.runDays,baseKm:draft.baseKm,longest:draft.longest};cfg.plan=p;saveCfg();rebuild();draft=null;toast("Plano de "+DIST[p.dist].label.toLowerCase()+" ativado");show("plano");return;}
   if(act==="open"){openDays[di]=!isOpen(di);var yy=window.scrollY;vPlano();window.scrollTo(0,yy);return;}
   if(!di)return;var l=logs[di]=logs[di]||{},f=IDX[di];
-  if(act==="circ"){var cb=circBest(di).r;l.circ=l.circ||{};l.circ.r=clamp((l.circ.r||0)+(+el.dataset.v),0,99);if(!l.circ.r&&!l.circ.ab)delete l.circ;saveLog(di);refresh();if(l.circ&&cb&&l.circ.r===cb+1&&+el.dataset.v>0)toast("Novo recorde: "+l.circ.r+" séries");return;}
+  if(act==="circ"){var cb=circBest(di).r;l.circ=l.circ||{};l.circ.r=clamp((l.circ.r||0)+(+el.dataset.v),0,99);if(!l.circ.r&&!l.circ.ab)delete l.circ;circFs(l);saveLog(di);refresh();if(l.circ&&cb&&l.circ.r===cb+1&&+el.dataset.v>0)toast("Novo recorde: "+l.circ.r+" séries");return;}
   if(act==="circab"){l.circ=l.circ||{};l.circ.ab=!l.circ.ab;if(!l.circ.r&&!l.circ.ab)delete l.circ;saveLog(di);refresh();if(l.circ&&l.circ.ab)toast("Abdominais feitos ✓");return;}
   if(act==="dor"){l.dor=!l.dor;saveLog(di);refresh();toast(l.dor?"Anotado: 3 dias sem intensidade":"Dor ou mal-estar desmarcado");return;}
   if(act==="sleep"){var sv=+el.dataset.v;l.sleep=l.sleep===sv?null:sv;saveLog(di);refresh();return;}
   if(!f)return;
   if(act==="run"){l.s=l.s===el.dataset.v?"":el.dataset.v;if(l.s==="sim"&&!(l.km>0)&&f.x.km&&!f.x.race)l.km=pkm(di,f.x);saveLog(di);refresh();if(l.s==="sim")toast("Corrida registrada ✓");return;}
-  if(act==="musc"){var mb=muscPlan(f.w);l.musc=el.dataset.v;if(el.dataset.v==="none")l.fs="";var ma=muscPlan(f.w);var ch=f.w.days.filter(function(y){return y.d>f.x.d&&mb[y.d]&&ma[y.d]&&mb[y.d].eff!==ma[y.d].eff;}).map(function(y){return DOWF[y.d]+" agora é "+(ma[y.d].eff==="none"?"sem musculação":"treino "+ma[y.d].eff);});saveLog(di);refresh();if(ch.length)toast("Semana reencaixada: "+ch.join(", "));return;}
-  if(act==="fs"){var mp=muscPlan(f.w)[f.x.d];if(l.fs==="sim")l.fs="";else{l.fs="sim";if(!l.musc&&mp)l.musc=mp.eff;}saveLog(di);refresh();if(l.fs==="sim")toast("Treino "+l.musc+" registrado ✓");return;}
+  if(act==="musc"){var mb=muscPlan(f.w),mold=l.musc;l.musc=el.dataset.v;if(el.dataset.v==="none")l.fs="";else if(el.dataset.v==="circ")circFs(l);else if(mold==="circ")l.fs="";var ma=muscPlan(f.w);var ch=f.w.days.filter(function(y){return y.d>f.x.d&&mb[y.d]&&ma[y.d]&&mb[y.d].eff!==ma[y.d].eff;}).map(function(y){return DOWF[y.d]+" agora é "+(ma[y.d].eff==="none"?"sem musculação":"treino "+ma[y.d].eff);});saveLog(di);refresh();if(ch.length)toast("Semana reencaixada: "+ch.join(", "));return;}
+  if(act==="fs"){var mp=muscPlan(f.w)[f.x.d];if(l.fs==="sim")l.fs="";else{l.fs="sim";if(!l.musc&&mp)l.musc=mp.eff;}saveLog(di);refresh();if(l.fs==="sim")toast(l.musc==="circ"?"Circuito registrado ✓":"Treino "+l.musc+" registrado ✓");return;}
   if(act==="use5k"){var s=parseTime(l.t5k);if(!s||s<900||s>3600){toast("Escreva o tempo como 30:15");return;}cfg.t5k=s;saveCfg();refresh();toast("Ritmos atualizados: 5 km em "+fmtTime(s));return;}
 });
 document.addEventListener("input",function(ev){
   var t=ev.target,ds=t.dataset||{};
-  if(ds.cslot){var lc=logs[ds.cslot]=logs[ds.cslot]||{},cv=parseInt(String(t.value).replace(/\D/g,""),10);lc.circ=lc.circ||{};lc.circ.r=cv>0?Math.min(cv,99):0;if(!lc.circ.r&&!lc.circ.ab)delete lc.circ;saveLog(ds.cslot);return;}
+  if(ds.cslot){var lc=logs[ds.cslot]=logs[ds.cslot]||{},cv=parseInt(String(t.value).replace(/\D/g,""),10);lc.circ=lc.circ||{};lc.circ.r=cv>0?Math.min(cv,99):0;if(!lc.circ.r&&!lc.circ.ab)delete lc.circ;circFs(lc);saveLog(ds.cslot);return;}
   if(ds.slot){var l=logs[ds.slot]=logs[ds.slot]||{},f=ds.f,raw=String(t.value).trim();
     if(f==="km"||f==="fc"||f==="fcmax"||f==="kcal"){var v=parseFloat(raw.replace(",","."));l[f]=v>0?(f==="km"?Math.round(v*100)/100:Math.round(v)):null;}
     else if(f==="time"||f==="pace"){var sv=parseTime(raw,f==="pace");l[f]=sv>0?sv:null;if(f==="pace")l.paceAuto=false;}
