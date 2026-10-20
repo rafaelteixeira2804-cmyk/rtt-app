@@ -836,6 +836,9 @@ function adjOf(di){
   if(S.long&&t==="longao"&&di>S.long.d){var c2=Math.round(S.long.done+1.5);if(c2<x.km){km=Math.min(km,c2);why.push("No último longão você fez "+fmtKm(S.long.done)+" de "+fmtKm(S.long.plan)+" km. Este fica em até "+fmtKm(c2)+" km.");T("prática de treinador");}}
   if(S.miss&&t==="longao"){var pl=prevLong(f.w);if(pl&&pl<x.km){km=Math.min(km,pl);why.push("Você perdeu "+S.miss.n+" corridas nos últimos 7 dias. O longão não sobe nesta semana: treino perdido não se compensa.");T("prática de treinador");}}
   if(t==="qual"&&!swap&&l.sleep&&l.sleep<6){swap=true;why.push("Você dormiu menos de 6 h. A qualidade de hoje virou corrida leve, com a mesma distância.");R(["fullagar"]);}
+  var dtd=parseISO(di);function nb(k){var g=IDX[iso(addDays(dtd,k))];return g&&g.x.km?g.x:null;}
+  if(t==="qual"&&!swap){var p1=nb(-1),n1=nb(1);if((p1&&(p1.t==="longao"||p1.race))||(n1&&(n1.t==="longao"||n1.race))){swap=true;why.push("Com a mudança de dia, a qualidade ficou colada no longão. Dois treinos fortes seguidos aumentam o risco de lesão, então ela virou corrida leve, com a mesma distância.");T("prática de treinador");}}
+  if((t==="facil"||t==="ativ")&&x.movedFrom){var n2=nb(1);if(n2&&n2.t==="longao"){var c4=Math.max(3,Math.round(x.km*.7));if(c4<x.km){km=Math.min(km,c4);why.push("Corrida movida para a véspera do longão: fica mais curta, para as pernas chegarem inteiras amanhã.");T("prática de treinador");}}}
   if(S.hr&&(t==="facil"||t==="longao"||swap)){add=15;why.push(S.hr.n+" corridas leves recentes saíram com o coração alto (FC média acima de "+zones().z2+" bpm). O ritmo leve ficou 15 s/km mais lento.");R(["seiler","stoggl"]);}
   if(!why.length)return null;
   return {km:Math.min(km,x.km),add:add,swap:swap,dor:!!dor,why:why,refs:refs,tags:tags};
@@ -969,14 +972,14 @@ function moveRunLog(a,b){var la=logs[a];if(!la)return;var lb=logs[b]=logs[b]||{}
   if(moved){saveLog(a);saveLog(b);}}
 function moveWarn(x,d){var f=IDX[d];if(!f)return "";var dt=parseISO(d),hard=x.t==="qual"||x.t==="longao";
   function hd(k){var g=IDX[iso(addDays(dt,k))];return g&&g.x.km&&(g.x.t==="qual"||g.x.t==="longao"||g.x.race);}
-  if(hard&&(hd(-1)||hd(1)))return "colado em treino forte";
-  if(!hard){var nx=IDX[iso(addDays(dt,1))];if(nx&&nx.x.t==="longao")return "véspera do longão";}
+  if(hard&&(hd(-1)||hd(1)))return x.t==="qual"?"vira leve: colado no longão":"colado em treino forte";
+  if(!hard){var nx=IDX[iso(addDays(dt,1))];if(nx&&nx.x.km&&nx.x.t==="longao")return "fica mais curta: véspera do longão";}
   if(dowIdx(dt)===3)return "dia cheio";
   return "";}
 function moveChips(di){var f=IDX[di];if(!f)return "";var w=f.w;
   var opts=w.days.filter(function(y){return !y.km;}).map(function(y){return iso(dateOf(w.n,y.d));}).filter(function(d){return d!==di;});
   if(!opts.length)return '<p class="hint">Não há outro dia sem corrida nesta semana.</p>';
-  return '<p class="hint">Para qual dia? Só dentro desta semana; o treino vai igual, com o mesmo km.</p><div class="opts">'+opts.map(function(d){var dt=parseISO(d),wn=moveWarn(f.x,d);return '<button class="opt" data-act="mv" data-slot="'+di+'" data-v="'+d+'">'+DOWL[dowIdx(dt)]+" "+dm(dt)+(wn?"<em>"+wn+"</em>":"")+"</button>";}).join("")+"</div>";}
+  return '<p class="hint">Para qual dia? Só dentro desta semana. O resto da semana se ajusta sozinho se precisar.</p><div class="opts">'+opts.map(function(d){var dt=parseISO(d),wn=moveWarn(f.x,d);return '<button class="opt" data-act="mv" data-slot="'+di+'" data-v="'+d+'">'+DOWL[dowIdx(dt)]+" "+dm(dt)+(wn?"<em>"+wn+"</em>":"")+"</button>";}).join("")+"</div>";}
 function moveNote(x,di){
   if(x.movedFrom){var a=parseISO(x.movedFrom);return '<p class="mvn">↔ Corrida trazida de '+DOWF[dowIdx(a)]+" ("+dm(a)+'). <button class="linkbtn" data-act="mvundo" data-slot="'+x.movedFrom+'">Desfazer</button></p>';}
   if(x.movedTo){var b=parseISO(x.movedTo);return '<p class="mvn">↔ Corrida movida para '+DOWF[dowIdx(b)]+" ("+dm(b)+'). <button class="linkbtn" data-act="mvundo" data-slot="'+di+'">Desfazer</button></p>';}
@@ -1229,7 +1232,8 @@ function vCiencia(){
     '<li><b>Dormiu menos de 6 h</b> em dia de qualidade: vira corrida leve. <button class="ref" data-sci="fullagar">'+SCIS.fullagar+'</button></li>'+
     '<li><b>Dor ou mal-estar</b>: 3 dias sem intensidade e com menos volume. Febre, ou dor que piora ou não passa: médico. '+tagsHTML(["regra de segurança"])+'</li>'+
     '<li><b>Longão curto</b>: fez menos de 80% do previsto, o próximo fica no máximo 1,5 km acima do que você fez. '+tagsHTML(["prática de treinador"])+'</li>'+
-    '<li><b>2 corridas perdidas</b> em 7 dias: o próximo longão não sobe. Treino perdido não se compensa. '+tagsHTML(["prática de treinador"])+'</li></ol>'+
+    '<li><b>2 corridas perdidas</b> em 7 dias: o próximo longão não sobe. Treino perdido não se compensa. '+tagsHTML(["prática de treinador"])+'</li>'+
+    '<li><b>Mudou uma corrida de dia</b>: se a qualidade colar no longão, ela vira leve; corrida leve que cair na véspera do longão fica 30% menor. '+tagsHTML(["prática de treinador"])+'</li></ol>'+
     '<p class="hint">Os números vêm do que você registra no app. O que o app não vê (dor antiga, viagem, estresse, calor fora do normal), me conte no chat.</p></div>';
 
   h+=SCI.map(function(s){return '<div class="card sci'+(sciFocus===s.id?" hl":"")+'" id="sci-'+s.id+'"><span class="eyebrow">'+SCIS[s.id]+"</span><h3>"+esc(s.t)+'</h3><p class="find">'+esc(s.f)+'</p><p class="use"><b>No app:</b> '+esc(s.u)+'</p><p class="cite">'+esc(s.c)+' <a href="'+s.url+'" target="_blank" rel="noopener">abrir ›</a></p></div>';}).join("");
