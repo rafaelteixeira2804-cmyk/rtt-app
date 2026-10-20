@@ -479,6 +479,13 @@ ol.rules li::marker,ul.rules li::marker{color:var(--sec)}
 .chist li{display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:13px;color:var(--ink-2);padding:7px 0;border-bottom:1px solid var(--line)}
 .chist li b{color:var(--ink);font-weight:600}
 .fz .circ{--c:var(--violet);--rgb:184,162,255}
+
+/* ---------- mudar o dia ---------- */
+.mv{flex-basis:100%;display:grid;gap:8px}
+.mvb{appearance:none;justify-self:start;border:1px dashed var(--line-2);background:transparent;color:var(--ink-2);border-radius:10px;padding:7px 12px;font-size:13px;font-weight:500;cursor:pointer}
+.mvb[aria-expanded="true"]{border-style:solid;color:var(--ink-3)}
+.mvn{font-size:13px;color:var(--gold);background:rgba(244,203,110,.08);border:1px solid rgba(244,203,110,.25);padding:6px 10px;border-radius:10px;justify-self:start}
+.mvn .linkbtn{font-size:13px;color:var(--gold);text-decoration:underline;padding:0;margin-left:2px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 .bk{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .bk .btn{text-align:center;cursor:pointer}
@@ -733,7 +740,7 @@ function buildPlan(P){
 var PLAN=[],IDX={};
 function dateOfP(start,n,dd){return addDays(parseISO(start),7*(n-1)+dd);}
 function dateOf(n,dd){return dateOfP(cfg.plan.start,n,dd);}
-var lastPlanKey="";function rebuild(){var key=JSON.stringify(cfg.plan),same=key===lastPlanKey;lastPlanKey=key;PLAN=buildPlan(cfg.plan);IDX={};PLAN.forEach(function(w){w.days.forEach(function(x){IDX[iso(dateOf(w.n,x.d))]={w:w,x:x};});});if(!same)curWeek=clampW(weekOfDate(new Date()));}
+var lastPlanKey="";function rebuild(){var key=JSON.stringify(cfg.plan),same=key===lastPlanKey;lastPlanKey=key;PLAN=buildPlan(cfg.plan);IDX={};PLAN.forEach(function(w){w.days.forEach(function(x){IDX[iso(dateOf(w.n,x.d))]={w:w,x:x};});});applyMoves();if(!same)curWeek=clampW(weekOfDate(new Date()));}
 function lastN(){return PLAN.length-1;}
 function clampW(n){return n<0?0:(n>lastN()?lastN():n);}
 function weekOfDate(dt){var s=parseISO(cfg.plan.start),diff=daysBetween(s,new Date(dt.getFullYear(),dt.getMonth(),dt.getDate()));if(diff<0)return diff>=-6?0:-1;var n=Math.floor(diff/7)+1;return n>lastN()?lastN()+1:n;}
@@ -815,7 +822,7 @@ function sigAt(end){
 }
 function signals(){var t0=parseISO(todayISO());SIG={now:sigAt(addDays(t0,-1)),fut:sigAt(t0)};return SIG;}
 function dorSince(di){var dt=parseISO(di);if(!dt)return null;for(var i=0;i<=2;i++){var d=iso(addDays(dt,-i));if((logs[d]||{}).dor)return d;}return null;}
-function prevLong(w){for(var n=w.n-1;n>=1;n--){var p=PLAN[n];if(p&&p.kind==="load"){var y=p.days[p.days.length-1];if(y&&y.t==="longao")return y.km;}}return null;}
+function prevLong(w){for(var n=w.n-1;n>=1;n--){var p=PLAN[n];if(p&&p.kind==="load"){var y=p.days.filter(function(z){return z.t==="longao";})[0];if(y)return y.km;}}return null;}
 function adjOf(di){
   var f=IDX[di];if(!f||!f.x.km)return null;
   var td=todayISO();if(di<td||daysBetween(parseISO(td),parseISO(di))>6)return null;
@@ -893,6 +900,7 @@ function runLogHTML(x,di,pfx){
   var h='<div class="log"><div class="seg" role="group" aria-label="Corrida">'+[["sim","✓ Feito"],["parcial","Parcial"],["nao","Não fiz"]].map(function(o){return '<button data-act="run" data-slot="'+di+'" data-v="'+o[0]+'" aria-pressed="'+(l.s===o[0])+'">'+o[1]+"</button>";}).join("")+"</div>"+
     '<div class="mf">'+fi("km","Distância (km)","0,0","decimal")+fi("time","Tempo","45:30","decimal")+fi("pace","Pace (/km)","6:30","decimal")+fi("fc","FC média","bpm","numeric")+fi("fcmax","FC máx","bpm","numeric")+fi("kcal","Calorias","kcal","numeric")+"</div>";
   if(x.test)h+='<div class="t5"><label class="fld">Tempo dos 5 km <input id="'+pfx+"-t5-"+di+'" data-slot="'+di+'" data-f="t5k" type="text" inputmode="decimal" autocomplete="off" placeholder="30:15"></label><button class="btn" data-act="use5k" data-slot="'+di+'">Usar nos ritmos</button></div>';
+  if(!x.race){var mo=moveOpen===di;h+='<div class="mv"><button class="mvb" data-act="mvopen" data-slot="'+di+'" aria-expanded="'+mo+'">'+(mo?"Cancelar mudança":"↔ Mudar o dia desta corrida")+"</button>"+(mo?moveChips(di):"")+"</div>";}
   return h+'<p class="hint mf-h">Copie do relógio. Tempo e pace podem ser digitados com vírgula (45,30). Com distância e tempo, o pace sai sozinho.</p></div>';
 }
 function forcaHTML(w,x,di,pfx){
@@ -920,7 +928,7 @@ function dayInner(w,x,di,pfx){
   if(x.t==="forca"){if(t==="desc"){nm="Sem corrida";sub="";det=mp?"Dia livre. Escolha um treino de força, se for treinar.":"Dia livre de corrida.";}else if(mp.eff==="circ"){nm="Circuito de 20 min";sub="";}else sub=SN[mp.eff];}
   if(x.t==="desc"&&t==="forca"){nm=mp.eff==="circ"?"Circuito de 20 min":"Musculação extra";sub=mp.eff==="circ"?"":SN[mp.eff];det="";}
   if(A&&A.swap){nm="Rodagem leve";sub="no lugar de "+x.name+(x.sub?" "+x.sub:"");det="Corrida fácil, pela respiração. Nada de tiros ou ritmo forte hoje.";}
-  var h='<div class="day-head"><span class="pill '+ty.c+'">'+ty.p+"</span><h4>"+esc(nm)+(sub?" <small>· "+esc(sub)+"</small>":"")+"</h4></div>";
+  var h='<div class="day-head"><span class="pill '+ty.c+'">'+ty.p+"</span><h4>"+esc(nm)+(sub?" <small>· "+esc(sub)+"</small>":"")+"</h4></div>"+moveNote(x,di);
   if(x.km){var eff=A&&A.swap?"Fácil":x.eff,km=A?A.km:x.km;
     h+='<div class="day-meta"><span class="k num">'+fmtKm(km)+"<small>km</small></span>"+(km<x.km?"<s>"+fmtKm(x.km)+" km</s>":"")+'<span class="pace">'+paceTxtA(eff,A?A.add:0)+"</span><span>"+(t==="facil"||t==="ativ"?"pela respiração":esc(fcTxt(eff)))+"</span></div>";}
   if(A)h+=adjHTML(A);
@@ -945,6 +953,34 @@ function syncInputs(root){
 /* ====================== CIDADE ====================== */
 
 
+
+
+/* ---------- mudar corrida de dia (cfg.moves: data original -> nova data, mesma semana) ---------- */
+var moveOpen=null,RUNF=["s","km","time","pace","paceAuto","fc","fcmax","kcal","t5k"];
+function testOf(w){return w.days.filter(function(y){return y.test;})[0]||null;}
+function applyMoves(){var mv=cfg.moves||{};Object.keys(mv).sort().forEach(function(from){var to=mv[from],a=IDX[from],b=IDX[to];
+  if(!a||!b||a.w!==b.w||from===to||!a.x.km||a.x.race||b.x.km)return;
+  var w=a.w,src=a.x,dst=b.x,ia=w.days.indexOf(src),ib=w.days.indexOf(dst);
+  var run=Object.assign({},src,{d:dst.d,musc:dst.musc,movedFrom:from});
+  var rest=src.musc?{d:src.d,t:"forca",e:"💪",name:"Musculação",musc:src.musc,movedTo:to}:{d:src.d,t:"desc",e:"😴",name:"Sem corrida",movedTo:to};
+  w.days[ia]=rest;w.days[ib]=run;IDX[from]={w:w,x:rest};IDX[to]={w:w,x:run};});}
+function moveRunLog(a,b){var la=logs[a];if(!la)return;var lb=logs[b]=logs[b]||{},moved=false;
+  RUNF.forEach(function(k){if(la[k]!=null&&la[k]!==""&&(lb[k]==null||lb[k]==="")){lb[k]=la[k];delete la[k];moved=true;}});
+  if(moved){saveLog(a);saveLog(b);}}
+function moveWarn(x,d){var f=IDX[d];if(!f)return "";var dt=parseISO(d),hard=x.t==="qual"||x.t==="longao";
+  function hd(k){var g=IDX[iso(addDays(dt,k))];return g&&g.x.km&&(g.x.t==="qual"||g.x.t==="longao"||g.x.race);}
+  if(hard&&(hd(-1)||hd(1)))return "colado em treino forte";
+  if(!hard){var nx=IDX[iso(addDays(dt,1))];if(nx&&nx.x.t==="longao")return "véspera do longão";}
+  if(dowIdx(dt)===3)return "dia cheio";
+  return "";}
+function moveChips(di){var f=IDX[di];if(!f)return "";var w=f.w;
+  var opts=w.days.filter(function(y){return !y.km;}).map(function(y){return iso(dateOf(w.n,y.d));}).filter(function(d){return d!==di;});
+  if(!opts.length)return '<p class="hint">Não há outro dia sem corrida nesta semana.</p>';
+  return '<p class="hint">Para qual dia? Só dentro desta semana; o treino vai igual, com o mesmo km.</p><div class="opts">'+opts.map(function(d){var dt=parseISO(d),wn=moveWarn(f.x,d);return '<button class="opt" data-act="mv" data-slot="'+di+'" data-v="'+d+'">'+DOWL[dowIdx(dt)]+" "+dm(dt)+(wn?"<em>"+wn+"</em>":"")+"</button>";}).join("")+"</div>";}
+function moveNote(x,di){
+  if(x.movedFrom){var a=parseISO(x.movedFrom);return '<p class="mvn">↔ Corrida trazida de '+DOWF[dowIdx(a)]+" ("+dm(a)+'). <button class="linkbtn" data-act="mvundo" data-slot="'+x.movedFrom+'">Desfazer</button></p>';}
+  if(x.movedTo){var b=parseISO(x.movedTo);return '<p class="mvn">↔ Corrida movida para '+DOWF[dowIdx(b)]+" ("+dm(b)+'). <button class="linkbtn" data-act="mvundo" data-slot="'+di+'">Desfazer</button></p>';}
+  return "";}
 
 /* ---------- circuito semanal (qualquer dia) ---------- */
 var CIRC={min:20,ex:[["Puxada aberta",5],["Flexão",10],["Agachamento",15]],abs:40};
@@ -979,7 +1015,7 @@ function ringsHTML(di){
   var run=null,fz=null,ag=Math.min(1,(agua[di]||0)/aguaMeta(di).total);
   if(f&&f.x.km){run=l.s==="sim"?1:(l.km>0?Math.min(1,l.km/pkm(di,f.x)):(l.s==="parcial"?.5:0));}
   if(f){var mp=muscPlan(f.w)[f.x.d];if(mp&&mp.eff!=="none")fz=l.fs==="sim"?1:0;}if(l.circ&&l.circ.r>0)fz=1;
-  var R=[{v:run,c:"url(#rgE)",tr:"rgba(255,143,102,.14)",cls:"c-ember",r:54,lbl:"Corrida",val:run==null?"descanso":(l.km>0?fmtKm(l.km)+"/"+fmtKm(pkm(di,f.x))+" km":(run?"feita":fmtKm(pkm(di,f.x))+" km")),col:"var(--accent)"},
+  var R=[{v:run,c:"url(#rgE)",tr:"rgba(255,143,102,.14)",cls:"c-ember",r:54,lbl:"Corrida",val:run==null?(f&&f.x.movedTo?"movida":"descanso"):(l.km>0?fmtKm(l.km)+"/"+fmtKm(pkm(di,f.x))+" km":(run?"feita":fmtKm(pkm(di,f.x))+" km")),col:"var(--accent)"},
          {v:fz,c:"url(#rgV)",tr:"rgba(184,162,255,.14)",cls:"c-violet",r:44,lbl:"Força",val:fz==null?"livre":(l.fs==="sim"?"feita":(l.circ&&l.circ.r>0?"circuito":"a fazer")),col:"var(--str)"},
          {v:ag,c:"url(#rgC)",tr:"rgba(98,211,247,.14)",cls:"c-cyan",r:34,lbl:"Água",val:fmtL(agua[di]||0),col:"var(--water)"}];
   var act=R.filter(function(r){return r.v!=null;}),tot=act.length?act.reduce(function(a,r){return a+r.v;},0)/act.length:0;
@@ -1025,9 +1061,9 @@ function vPlano(){
   var cells="",miles="";
   for(n=1;n<=N;n++){var w=PLAN[n],dn=weekDone(w),pct=dn.tot?Math.round(dn.ok/dn.tot*100):0,cls=w.ph==="race"?"taper":w.ph;
     cells+='<button class="wcell '+cls+(w.kind==="cut"?" cut":"")+(n===nowW?" now":"")+'" data-week="'+n+'" title="Semana '+n+'"><i style="width:'+pct+'%"></i><span>'+n+"</span></button>";
-    var m=w.days[2].test?"T":(w.kind==="race"?"P":(w.days[6].km===lmax&&w.days[6].t==="longao"?"L":""));if(m)miles+='<div class="mile" style="grid-column:'+n+'">'+m+"</div>";}
+    var m=testOf(w)?"T":(w.kind==="race"?"P":(w.days.some(function(y){return y.t==="longao"&&y.km===lmax;})?"L":""));if(m)miles+='<div class="mile" style="grid-column:'+n+'">'+m+"</div>";}
   h+='<div class="card tint c-gold"><div class="card-h"><h3>Roteiro do ciclo</h3><span class="muted">toque numa semana</span></div><div class="road-grid" style="grid-template-columns:'+cols+'">'+lab+cells+miles+'</div><p class="muted" style="margin-top:10px;font-size:12px">T teste de 5 km · L maior longão · P prova · contorno = semana leve</p></div>';
-  var a=null,b=null,tests=[];PLAN.forEach(function(w){if(w.days[2]&&w.days[2].test){var tv=parseTime((logs[iso(dateOf(w.n,2))]||{}).t5k);tests.push(tv);}});a=tests[0]||null;b=tests[1]||null;
+  var a=null,b=null,tests=[];PLAN.forEach(function(w){var td0=testOf(w);if(td0){var tv=parseTime((logs[iso(dateOf(w.n,td0.d))]||{}).t5k);tests.push(tv);}});a=tests[0]||null;b=tests[1]||null;
   var due=0,ok=0,td=todayISO();PLAN.forEach(function(w){w.days.forEach(function(x){var di=iso(dateOf(w.n,x.d));if(di>td)return;var l=logs[di]||{};if(x.km){due++;if(l.s==="sim"||l.s==="parcial")ok++;}if(cfg.gym&&x.musc&&sOpts(w,x).length){due++;if(l.fs==="sim")ok++;}});});
   var tot=0,real=0;PLAN.forEach(function(w){tot+=w.V;real+=realKm(w);});
   var G=[{c:"c-ember",k:"Km do ciclo",v:fmtKm(real)+" km",s:"de "+fmtKm(tot)+" previstos",p:tot?real/tot*100:0},{c:"c-mint",k:"Constância",v:due?ok+"/"+due:"—",s:due?"treinos feitos até hoje":"conta a partir do 1º treino",p:due?ok/due*100:0},
@@ -1156,11 +1192,11 @@ function outsHTML(){var d=D(),p5=cfg.t5k/5,rp=racePace(),pred=riegel(cfg.t5k,5,d
 function effHTML(){var z=zones();return '<thead><tr><th class="l">Treino</th><th>Pace</th><th>FC</th><th class="l">Como deve parecer</th></tr></thead><tbody>'+EFF.map(function(e){var cls={"Fácil":"p-facil","Longão":"p-longao","Teste 5 km":"p-prova"}[e.k]||"p-qual";return '<tr><td class="l"><span class="pill '+cls+'">'+e.k.toUpperCase()+'</span></td><td class="num nw"><b>'+paceTxt(e.k)+"</b></td><td>"+esc(e.fc(z))+'</td><td class="l">'+esc(e.feel)+"</td></tr>";}).join("")+"</tbody>";}
 function vVo2(){
   topTitle("Qualidade","VO2max","");
-  var tv=[];PLAN.forEach(function(w){if(w.days[2]&&w.days[2].test)tv.push({w:w.n,t:parseTime((logs[iso(dateOf(w.n,2))]||{}).t5k)});});
+  var tv=[];PLAN.forEach(function(w){var td1=testOf(w);if(td1)tv.push({w:w.n,d:td1.d,t:parseTime((logs[iso(dateOf(w.n,td1.d))]||{}).t5k)});});
   var a=tv[0]&&tv[0].t,b=tv[1]&&tv[1].t;
   function box(l,s,sub){return '<div class="card out tint c-ember"><span>'+l+'</span><b class="num">'+(s?fmtTime(s):"—")+"</b><small>"+sub+"</small></div>";}
-  var h='<button class="back" data-go="mais">‹ Mais</button><div class="tests">'+box("Referência",cfg.t5k,"usada nos ritmos")+(tv[0]?box("Teste · S"+tv[0].w,a,a?fmtPace(a/5)+"/km":dm(dateOf(tv[0].w,2))):"")+(tv[1]?box("Reteste · S"+tv[1].w,b,b?fmtPace(b/5)+"/km":dm(dateOf(tv[1].w,2))):"")+box("Evolução",a&&b?Math.abs(a-b):null,a&&b?(b<a?"mais rápido":"mais lento: me chama"):"depois dos dois testes")+"</div>";
-  var seen={},list=[];PLAN.forEach(function(w){var q=w.days[2];if(q&&q.t==="qual"){var key=q.name+(q.sub||"");if(!seen[key]){seen[key]={q:q,w:[]};list.push(seen[key]);}seen[key].w.push(w.n);}});
+  var h='<button class="back" data-go="mais">‹ Mais</button><div class="tests">'+box("Referência",cfg.t5k,"usada nos ritmos")+(tv[0]?box("Teste · S"+tv[0].w,a,a?fmtPace(a/5)+"/km":dm(dateOf(tv[0].w,tv[0].d))):"")+(tv[1]?box("Reteste · S"+tv[1].w,b,b?fmtPace(b/5)+"/km":dm(dateOf(tv[1].w,tv[1].d))):"")+box("Evolução",a&&b?Math.abs(a-b):null,a&&b?(b<a?"mais rápido":"mais lento: me chama"):"depois dos dois testes")+"</div>";
+  var seen={},list=[];PLAN.forEach(function(w){var q=w.days.filter(function(y){return y.t==="qual";})[0];if(q){var key=q.name+(q.sub||"");if(!seen[key]){seen[key]={q:q,w:[]};list.push(seen[key]);}seen[key].w.push(w.n);}});
   h+='<div class="lib">'+list.map(function(it){var q=it.q;return '<div class="card vo tint '+(q.lim?"c-blue":(q.test?"c-gold":"c-ember"))+'"><h3>'+esc(q.name)+'</h3><div class="str">'+esc(q.sub||"5 km contínuos")+'</div><div class="pace num">'+paceTxt(q.eff)+"</div><dl><dt>FC</dt><dd>"+esc(fcTxt(q.eff))+"</dd><dt>Total</dt><dd>≈ "+q.km+" km</dd><dt>Como</dt><dd>"+esc(q.det)+"</dd><dt>Quando</dt><dd>"+it.w.map(function(n){return '<button class="wlink" data-week="'+n+'">S'+n+"</button>";}).join(" · ")+"</dd></dl>"+(q.sci?'<div><button class="ref" data-sci="'+q.sci+'">'+SCIS[q.sci]+"</button></div>":"")+"</div>";}).join("")+"</div>";
   h+='<div class="card tint c-ember"><div class="card-h"><h3>Regras da qualidade</h3></div><ol class="rules"><li>Aquecimento e desaquecimento não são opcionais.</li><li>Dormiu menos de 6 h, febre ou dor no corpo: troque por corrida fácil.</li><li>O VO2max do relógio oscila à toa. A medida confiável é o tempo dos testes de 5 km.</li></ol><div>'+["helgerud","stoggl","fullagar"].map(function(r){return '<button class="ref" data-sci="'+r+'">'+SCIS[r]+"</button>";}).join("")+"</div></div>";
   $("app").innerHTML='<div class="panel view">'+h+"</div>";
@@ -1229,7 +1265,7 @@ document.addEventListener("click",function(ev){
   if(act==="dm"){draft.mode=el.dataset.v;vPlanos();return;}
   if(act==="dr"){draft.runDays=+el.dataset.v;vPlanos();return;}
   if(act==="export"){doExport();return;}
-  if(act==="activate"){applyDraftDates();var p={dist:draft.dist,goal:draft.goal||null,weeks:draft.weeks,start:draft.start,runDays:draft.runDays,baseKm:draft.baseKm,longest:draft.longest};cfg.plan=p;saveCfg();rebuild();draft=null;toast("Plano de "+DIST[p.dist].label.toLowerCase()+" ativado");show("plano");return;}
+  if(act==="activate"){applyDraftDates();var p={dist:draft.dist,goal:draft.goal||null,weeks:draft.weeks,start:draft.start,runDays:draft.runDays,baseKm:draft.baseKm,longest:draft.longest};cfg.plan=p;cfg.moves={};saveCfg();rebuild();draft=null;toast("Plano de "+DIST[p.dist].label.toLowerCase()+" ativado");show("plano");return;}
   if(act==="open"){openDays[di]=!isOpen(di);var yy=window.scrollY;vPlano();window.scrollTo(0,yy);return;}
   if(!di)return;var l=logs[di]=logs[di]||{},f=IDX[di];
   if(act==="circ"){var cb=circBest(di).r;l.circ=l.circ||{};l.circ.r=clamp((l.circ.r||0)+(+el.dataset.v),0,99);if(!l.circ.r&&!l.circ.ab)delete l.circ;circFs(l);saveLog(di);refresh();if(l.circ&&cb&&l.circ.r===cb+1&&+el.dataset.v>0)toast("Novo recorde: "+l.circ.r+" séries");return;}
@@ -1238,6 +1274,9 @@ document.addEventListener("click",function(ev){
   if(act==="sleep"){var sv=+el.dataset.v;l.sleep=l.sleep===sv?null:sv;saveLog(di);refresh();return;}
   if(!f)return;
   if(act==="run"){l.s=l.s===el.dataset.v?"":el.dataset.v;if(l.s==="sim"&&!(l.km>0)&&f.x.km&&!f.x.race)l.km=pkm(di,f.x);saveLog(di);refresh();if(l.s==="sim")toast("Corrida registrada ✓");return;}
+  if(act==="mvopen"){moveOpen=moveOpen===di?null:di;refresh();return;}
+  if(act==="mv"){var to=el.dataset.v,mvs=cfg.moves=cfg.moves||{},from=f.x.movedFrom||di;moveRunLog(di,to);if(to===from)delete mvs[from];else mvs[from]=to;moveOpen=null;saveCfg();rebuild();refresh();var tdt=parseISO(to);toast("Corrida movida para "+DOWF[dowIdx(tdt)]+" ✓");return;}
+  if(act==="mvundo"){var mvz=cfg.moves||{},dest=mvz[di];if(dest){moveRunLog(dest,di);delete mvz[di];saveCfg();rebuild();refresh();toast("Corrida de volta para "+DOWF[dowIdx(parseISO(di))]);}return;}
   if(act==="musc"){var mb=muscPlan(f.w),mold=l.musc;l.musc=el.dataset.v;if(el.dataset.v==="none")l.fs="";else if(el.dataset.v==="circ")circFs(l);else if(mold==="circ")l.fs="";var ma=muscPlan(f.w);var ch=f.w.days.filter(function(y){return y.d>f.x.d&&mb[y.d]&&ma[y.d]&&mb[y.d].eff!==ma[y.d].eff;}).map(function(y){return DOWF[y.d]+" agora é "+(ma[y.d].eff==="none"?"sem musculação":"treino "+ma[y.d].eff);});saveLog(di);refresh();if(ch.length)toast("Semana reencaixada: "+ch.join(", "));return;}
   if(act==="fs"){var mp=muscPlan(f.w)[f.x.d];if(l.fs==="sim")l.fs="";else{l.fs="sim";if(!l.musc&&mp)l.musc=mp.eff;}saveLog(di);refresh();if(l.fs==="sim")toast(l.musc==="circ"?"Circuito registrado ✓":"Treino "+l.musc+" registrado ✓");return;}
   if(act==="use5k"){var s=parseTime(l.t5k);if(!s||s<900||s>3600){toast("Escreva o tempo como 30:15");return;}cfg.t5k=s;saveCfg();refresh();toast("Ritmos atualizados: 5 km em "+fmtTime(s));return;}
